@@ -2,29 +2,17 @@ from keras import layers, models, activations, losses, metrics, optimizers
 import matplotlib.pyplot as plt
 from numpy import array, random
 import numpy as np
+from make_data import make_all
 
-xin = open('xout', 'r')
-yin = open('yout', 'r')
 
-x = xin.readlines()
-y = yin.readlines()
-
-X = []
-Y = []
-for xx in x:
-    xxx = xx.split(' ')
-    X.append([float(xxx[0]), float(xxx[1])])
-
-for xx in y:
-    Y.append(float(xx))
-
+X, Y = make_all()
 X = array(X)
 Y = array(Y)
 
 data_size = X.shape[0]
 train_size = int(data_size * 0.8)
 
-randomize = np.arange(len(x))
+randomize = np.arange(len(X))
 np.random.shuffle(randomize)
 X = X[randomize]
 Y = Y[randomize]
@@ -35,18 +23,25 @@ test_datas = X[train_size + 1:]
 test_labels = Y[train_size + 1:]
 
 network = models.Sequential()
-network.add(layers.Dense(20, activation=activations.relu, input_shape=(2,)))
-network.add(layers.Dense(10, activation=activations.relu))
-network.add(layers.Dense(1, activation=activations.relu))
-network.compile(optimizer=optimizers.Adam(), loss=losses.mse, metrics=[metrics.mse])
-history = network.fit(train_datas, train_labels, epochs=100, batch_size=32, validation_data=(test_datas, test_labels))
+
+network.add(layers.Dense(32, activation=activations.relu, input_shape=(16,)))
+network.add(layers.Dense(16, activation=activations.relu))
+network.add(layers.Dense(4, activation=activations.softmax))
+network.compile(optimizer=optimizers.Adam(), loss=losses.categorical_crossentropy, metrics=['accuracy'])
+
+
+history = network.fit(train_datas, train_labels,
+                      epochs=20, batch_size=64,
+                      validation_data=(test_datas, test_labels),
+                      use_multiprocessing=True
+                      )
 # test_loss, test_acc = network.evaluate(test_datas, test_labels)
 history_dict = history.history
 
 loss_values = history_dict['loss']
 val_loss_values = history_dict['val_loss']
-acc_values = history_dict['mean_squared_error']
-val_acc_values = history_dict['val_mean_squared_error']
+acc_values = history_dict['acc']
+val_acc_values = history_dict['val_acc']
 
 epochs = range(len(loss_values))
 plt.figure(1)
