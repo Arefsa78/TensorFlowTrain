@@ -24,7 +24,7 @@ test_labels = Y[train_size + 1:]
 
 network = models.Sequential()
 
-network.add(layers.Dense(32, activation=activations.relu, input_shape=(16,)))
+network.add(layers.Dense(32, activation=activations.relu, input_shape=(14,)))
 network.add(layers.Dense(16, activation=activations.relu))
 network.add(layers.Dense(4, activation=activations.softmax))
 network.compile(optimizer=optimizers.Adam(), loss=losses.categorical_crossentropy, metrics=['accuracy'])

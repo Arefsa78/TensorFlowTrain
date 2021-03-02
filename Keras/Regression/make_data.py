@@ -101,6 +101,7 @@ normalizers = {
     "pKickRand": normalizerNone,
     "pKickRate": normalizerNone,
     "pKickPower": normalizerNone,
+    "pDecay": normalizerNone,
     "pBody": normalizerAngle,
     "pVelx": normalizerVel,
     "pVely": normalizerVel,
