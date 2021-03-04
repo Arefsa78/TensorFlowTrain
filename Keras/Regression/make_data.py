@@ -2,49 +2,37 @@ import csv
 import math
 import os
 import random
+import pandas
+from multiprocessing import Pool
 
 
-def normalizerPosX(x):
-    return float(x) / 52.5
+def normalizerPosX(row, c):
+    return row[c] / 52.5
 
 
-def normalizerPosY(x):
-    return float(x) / 34
+def normalizerPosY(row, c):
+    return row[c] / 34
 
 
-def normalizerVel(x):  # todo no need to divide, i think
-    return float(x) / 3
+def normalizerVel(row, c):  # todo no need to divide, i think
+    return row[c] / 3
 
 
-def normalizerAngle(x):
-    return float(x) / 180
+def normalizerAngle(row, c):
+    return row[c] / 180
 
 
-def normalizerRelPosX(x):
-    return float(x) / 10
+def normalizerRelPosX(row, c):
+    return row[c] / 10
 
 
-def normalizerRelPosY(x):
-    return float(x) / 10
+def normalizerRelPosY(row, c):
+    return row[c] / 10
 
 
-def normalizerUnum(x):
-    return float(x) / 11
+def normalizerUnum(row, c):
+    return row[c] / 11
 
-
-def normalizerNone(x):
-    return float(x)
-
-
-def normalizerStep(x, one_key=True):
-    if one_key:
-        return oneKey(int(x), 3)
-    else:
-        return int(x) / 3
-
-
-def normalizerPossible(x):
-    return int(x)
 
 
 def oneKey(i, max):
@@ -65,13 +53,6 @@ def findAngle(s, c):
             return 180 - deg
         else:
             return -180 + deg
-
-
-def find_polar(x, y):
-    c = (x ** 2 + y ** 2) ** 0.5
-    if c == 0:
-        return 0, 0, 0
-    return x / c, y / c, c
 
 
 def filter_step(X, Y):
@@ -96,44 +77,44 @@ def filter_step(X, Y):
 
 
 normalizers = {
-    "pSize": normalizerNone,
-    "pKickMargin": normalizerNone,
-    "pKickRand": normalizerNone,
-    "pKickRate": normalizerNone,
-    "pKickPower": normalizerNone,
-    "pDecay": normalizerNone,
+    "pSize": None,
+    "pKickMargin": None,
+    "pKickRand": None,
+    "pKickRate": None,
+    "pKickPower": None,
+    "pDecay": None,
     "pBody": normalizerAngle,
     "pVelx": normalizerVel,
     "pVely": normalizerVel,
-    "bRelX": normalizerNone,
-    "bRelY": normalizerNone,
+    "bRelX": None,
+    "bRelY": None,
     "bRelDeg": normalizerAngle,
-    "bRelSin": normalizerNone,
-    "bRelCos": normalizerNone,
-    "bRelDist": normalizerNone,
-    "bVelX": normalizerNone,
-    "bVelY": normalizerNone,
-    "bVelSin": normalizerNone,
-    "bVelCos": normalizerNone,
+    "bRelSin": None,
+    "bRelCos": None,
+    "bRelDist": None,
+    "bVelX": None,
+    "bVelY": None,
+    "bVelSin": None,
+    "bVelCos": None,
     "bVelR": normalizerVel,
     "tRelX": normalizerRelPosX,
     "tRelY": normalizerRelPosY,
     "tRelDeg": normalizerAngle,
-    "tRelSin": normalizerNone,
-    "tRelCos": normalizerNone,
+    "tRelSin": None,
+    "tRelCos": None,
     "tVel": normalizerVel,
     "oVelX": normalizerVel,
     "oVelY": normalizerVel,
-    "oVelSin": normalizerNone,
-    "oVelCos": normalizerNone,
+    "oVelSin": None,
+    "oVelCos": None,
     "oVelR": normalizerVel,
-    "oStep": normalizerStep,
-    "oPossible": normalizerPossible,
+    "oStep": None,
+    "oPossible": None,
 }
 skip_keys = [
     "cycle",
     "pSize",
-    "pKickPower",
+    # "pKickPower",
     "bRelY",
     "bRelX",
     "bRelDeg",
@@ -145,7 +126,7 @@ skip_keys = [
     "oVelSin",
     "oVelCos",
     "oVelR",
-    "oStep",
+    # "oStep",
     "oPossible",
     "pBody",
     "bVelX",
@@ -180,56 +161,64 @@ def displayInfo(all_x, all_y):
     print(f"Y Varient: {s1}, {s2}, {s3}, {s0}")
 
 
-def make_all(lst=[]):
-    X_KEYS = set(normalizers) - set(skip_keys)
-    print(f"X keys: "
-          f"{X_KEYS}")
+def find_angle(row):
+    s = row['tRelSin']
+    c = row['tRelCos']
+    deg = math.asin(s) / math.pi * 180
+    if c > 0:
+        return deg
+    else:
+        if deg > 0:
+            return 180 - deg
+        else:
+            return -180 + deg
 
-    all_x = []
-    all_y = []
 
-    dir = '/mnt/f/2d/data'
-    os.chdir(dir)
-    files = os.listdir()
+def find_polar(row):
+    x = row['bVelX']
+    y = row['bVelY']
+    c = (x ** 2 + y ** 2) ** 0.5
+    if c == 0:
+        return 0, 0, 0
+
+    return x / c, y / c, c
+
+
+def normalize_file(arr):
+    path = arr[0]
+    file = arr[1]
+    print(path, file)
+    df = pandas.read_csv(os.path.join(path, file))
+
+    df['tRelDeg'] = df.apply(find_angle, axis=1)
+
+    df[['bVelSin', 'bVelCos', 'bVelR']] = df.apply(find_polar, axis=1, result_type="expand")
+    if not_possible_skip:
+        df = df[df['oPossible'] != 0]
+    df_y = df[y_keys[0]]
+    df = df.drop(columns=skip_keys + y_keys, axis=1)
+    for c in df.columns:
+        if normalizers[c] is not None:
+            df[c] = df.apply(normalizers[c], axis=1, args=[c])
+    out_file_name = file.split('.')[0]
+    df.to_csv(os.path.join(path, 'input_normal_' + out_file_name + '.csv'), index=False)
+    df_y.to_csv(os.path.join(path, 'output_normal_' + out_file_name + '.csv'), index=False)
+
+
+def make_all_new():
+    path = './data'
+    files = os.listdir(path)
+    sep_files = []
     for file in files:
         if file.split('.')[-1] != 'csv':
             continue
         if file.split('.')[-2] != 'sep':
             continue
-        data_file = open(file, 'r')
-        csv_table = csv.DictReader(data_file)
-        table = []
-        for row in csv_table:
-            row['tRelDeg'] = findAngle(float(row['tRelSin']), float(row['tRelCos']))
-            row['bVelSin'], row['bVelCos'], row['bVelR'] = find_polar(float(row['bVelX']), float(row['bVelY']))
-            table.append(row)
-        s = len(table)
-        first_time = True
-        for i, data in enumerate(table):
-            print(f"{i}/{s}")
-            if first_time:
-                for k in data.keys():
-                    if k in X_KEYS:
-                        lst.append(k)
-                first_time = False
-            if not_possible_skip and int(data["oPossible"]) == 0:
-                continue
-            new_x = [normalizers[key.strip(' ')](value)
-                     for key, value
-                     in data.items()
-                     if key not in skip_keys + y_keys]
-            new_y = [normalizers[key.strip(' ')](data[key])
-                     for key in y_keys]
+        if not file in ['kick-1613589756.sep.csv', 'kick-1613589770.sep.csv']:
+            continue
+        sep_files.append([path, file])
+    pool = Pool(2)
+    pool.map(normalize_file, sep_files)
 
-            all_x.append(new_x)
-            all_y.append(new_y[0])
 
-    n_data = len(new_x)
-    print(f"DATA: {len(all_x)}*{n_data}")
-    n_divider = n_data - int(n_data * test_percent)
-
-    # displayInfo(all_x, all_y)
-    return all_x, all_y
-    # return all_x[:n_divider], all_y[:n_divider], all_x[n_divider:], all_y[n_divider:]
-
-# make_all()
+make_all_new()
